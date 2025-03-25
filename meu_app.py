@@ -11,6 +11,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 st.set_page_config(page_title="Go MED SAÚDE", page_icon=":bar_chart:", layout="wide")
 
 # Configurações Globais
+CAMINHO_ARQUIVO_IMAGENS = "go_med_saude.jpeg"
 CAMINHO_ARQUIVO_VENDAS = "df_vendas.csv"
 MESES_ABREVIADOS = {
     1: 'Jan', 2: 'Fev', 3: 'Mar', 4: 'Abr', 5: 'Mai', 6: 'Jun',
@@ -42,13 +43,17 @@ def formatar_moeda(valor, simbolo_moeda="R$"):
         return "Valor inválido"
 
 def calcular_metricas(df):
-    """Calcula métricas de vendas."""
-    total_nf = len(df['NF'].unique())
-    total_qtd_produto = df['Qtd_Produto'].sum()
-    valor_total_item = df['Valor_Total_Item'].sum()
-    total_custo_compra = df['Total_Custo_Compra'].sum()
-    total_lucro_venda = df['Total_Lucro_Venda_Item'].sum()
-    return total_nf, total_qtd_produto, valor_total_item, total_custo_compra, total_lucro_venda
+    """Calcula métricas de vendas, incluindo o Ticket Médio Geral."""
+    total_nf = len(df['NF'].unique()) 
+    total_qtd_produto = df['Qtd_Produto'].sum() 
+    valor_total_item = df['Valor_Total_Item'].sum()  
+    total_custo_compra = df['Total_Custo_Compra'].sum()  
+    total_lucro_venda = df['Total_Lucro_Venda_Item'].sum() 
+
+
+    ticket_medio_geral = valor_total_item / total_nf if total_nf > 0 else 0
+
+    return total_nf, total_qtd_produto, valor_total_item, total_custo_compra, total_lucro_venda, ticket_medio_geral
 
 def agrupar_e_somar(df, coluna_agrupamento):
     """Agrupa e soma valores por uma coluna."""
@@ -94,7 +99,7 @@ def criar_grafico_barras(df, x, y, title, labels):
         yaxis_title=labels.get(x, x),
         xaxis_title=labels.get(y, y),
         showlegend=False,
-        height=850,
+        height=800,
         width=400,
         xaxis=dict(tickfont=dict(size=18)),
         yaxis=dict(
@@ -125,7 +130,7 @@ def criar_grafico_vendas_diarias(df, mes, ano):
         marker=dict(line=dict(color='black', width=1)),
         hoverlabel=dict(bgcolor="black", font_size=22,
             font_family="Arial-bold, sans-serif"), 
-            textfont=dict(size=16, color='black'),
+            textfont=dict(size=16, color='white'),
             textangle=0, textposition='inside')
     fig.update_layout(yaxis_title='Valor Total de Venda',
         xaxis_title='Dia',
@@ -160,7 +165,7 @@ def exibir_grafico_ticket_medio(df_ticket_medio):
     fig.update_traces(
         marker=dict(line=dict(color='black', width=1)),
         hoverlabel=dict(bgcolor="black", font_size=22, font_family="Arial, sans-serif"),
-        textfont=dict(size=32, color='#000000'),
+        textfont=dict(size=32, color='white'),
         textposition='outside',
         cliponaxis=False
     )
@@ -264,14 +269,41 @@ def renderizar_pagina_vendas_parte1(df):
     ano_atual = datetime.datetime.now().year
     mes_atual = datetime.datetime.now().month
 
-    total_nf, total_qtd_produto, valor_total_item, total_custo_compra, total_lucro_venda = calcular_metricas(df_filtrado)
+    total_nf, total_qtd_produto, valor_total_item, total_custo_compra, total_lucro_venda, ticket_medio_geral = calcular_metricas(df_filtrado)
+    
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Total de Notas", f"{total_nf}")
-    col2.metric("Total de Produtos", f"{total_qtd_produto}")
-    col3.metric("Faturamento Total", formatar_moeda(valor_total_item))
-    col4.metric("Custo Total", formatar_moeda(total_custo_compra))
-    col5.metric("Margem Bruta", formatar_moeda(total_lucro_venda))
+    def card_style(metric_name, value, color="#FFFFFF", bg_color="#262730"):
+        return f"""
+        <div style="
+            padding: 15px; 
+            border-radius: 15px; 
+            background-color: {bg_color}; 
+            color: {color}; 
+            text-align: center;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+        ">
+            <h4 style="margin: 0; font-size: 16px;">{metric_name}</h4>
+            <h2 style="margin: 5px 0; font-size: 24px;">{value}</h2>
+        </div>
+        """
+
+    col1, col2, col3, col4, col5, col6, col7 = st.columns([0.5, 1, 1, 1, 1, 1, 1])
+
+    with col1:
+        st.image(CAMINHO_ARQUIVO_IMAGENS, width=160)
+    with col2:
+        st.markdown(card_style("Total de Notas", f"{total_nf}"), unsafe_allow_html=True)
+    with col3:
+        st.markdown(card_style("Total de Produtos", f"{total_qtd_produto}"), unsafe_allow_html=True)
+    with col4:
+        st.markdown(card_style("Faturamento Total", formatar_moeda(valor_total_item)), unsafe_allow_html=True)
+    with col5:
+        st.markdown(card_style("Custo Total", formatar_moeda(total_custo_compra)), unsafe_allow_html=True)
+    with col6:
+        st.markdown(card_style("Margem Bruta", formatar_moeda(total_lucro_venda)), unsafe_allow_html=True)
+    with col7:
+        st.markdown(card_style("Ticket Médio Geral", formatar_moeda(ticket_medio_geral)), unsafe_allow_html=True)
+
 
     if 'Dia' in df.columns:
             fig_vendas_diarias = criar_grafico_vendas_diarias(df_filtrado, mes_atual, ano_atual)
